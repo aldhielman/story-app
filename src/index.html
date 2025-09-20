@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#3b82f6" />
+    <meta name="description" content="Aplikasi berbagi cerita dengan fitur lokasi dan notifikasi push" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Story App" />
+    <meta name="msapplication-TileColor" content="#3b82f6" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Icons -->
+    <link rel="shortcut icon" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    
+    <title>Story App</title>
+    
+    <!-- Leaflet -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    >
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+
+    <script type="module" src="scripts/index.js"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen m-0 p-0 flex flex-col">
+    
+    <!-- PWA Install Banner (will be shown when installable) -->
+    <div id="pwa-install-banner" class="hidden fixed top-0 left-0 right-0 z-[100] bg-blue-600 text-white p-3 shadow-lg">
+      <div class="flex items-center justify-between max-w-7xl mx-auto">
+        <div class="flex items-center space-x-3">
+          <span class="text-xl">📱</span>
+          <div>
+            <p class="font-medium">Install Story App</p>
+            <p class="text-sm opacity-90">Akses lebih cepat dan fitur offline</p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button id="pwa-install-btn" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors">
+            Install
+          </button>
+          <button id="pwa-dismiss-btn" class="text-white hover:bg-blue-700 p-2 rounded-lg transition-colors">
+            ✕
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Header - Hidden by default, shown only when authenticated -->
+    <header id="app-header" class="app-header hidden fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+      <!-- Skip to Content Link -->
+      <button id="skip-to-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-blue-600 text-white px-4 py-2 rounded-md z-[60] font-medium shadow-lg skip-to-content">
+        Skip to main content
+      </button>
+
+      <div class="main-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <a class="brand-name flex items-center space-x-2 text-xl font-bold text-gray-800 hover:text-blue-600 transition-colors" href="#/" tabindex="2">
+            <span class="brand-icon text-2xl">📖</span>
+            <span>Story App</span>
+          </a>
+
+          <!-- User Status Section -->
+          <div id="user-status" class="user-status flex items-center space-x-4">
+            <!-- Will be populated by JavaScript based on auth status -->
+          </div>
+
+          <button id="drawer-button" class="drawer-button lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Open menu" tabindex="3">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content pt-0 flex-1" tabindex="-1" role="main">
+      <!-- Content will be dynamically loaded here -->
+    </main>
+
+    <!-- Footer -->
+    <footer id="app-footer" class="app-footer bg-gray-800 text-white mt-auto">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <!-- About Section -->
+          <div class="footer-section">
+            <h3 class="text-lg font-semibold mb-4 flex items-center">
+              <span class="text-2xl mr-2">📖</span>
+              Story App
+            </h3>
+            <p class="text-gray-300 text-sm leading-relaxed">
+              Platform berbagi cerita dan pengalaman dengan komunitas. 
+              Bagikan momen berharga Anda dengan dunia.
+            </p>
+          </div>
+
+          <!-- Quick Links -->
+          <div class="footer-section">
+            <h3 class="text-md font-semibold mb-4">Tautan Cepat</h3>
+            <nav class="footer-nav">
+              <ul class="space-y-2">
+                <li>
+                  <a href="#/" class="text-gray-300 hover:text-white transition-colors text-sm" 
+                     aria-label="Beranda - Kembali ke halaman utama">
+                    🏠 Beranda
+                  </a>
+                </li>
+                <li>
+                  <a href="#/add-story" class="text-gray-300 hover:text-white transition-colors text-sm"
+                     aria-label="Tambah Cerita - Buat cerita baru">
+                    ➕ Tambah Cerita
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+
+          <!-- Contact & Accessibility -->
+          <div class="footer-section">
+            <h4 class="text-md font-semibold mb-4">Aksesibilitas & Bantuan</h4>
+            <div class="space-y-2">
+              <p class="text-gray-300 text-sm">
+                <span class="font-medium">Keyboard Navigation:</span><br>
+                Tab untuk navigasi, Enter untuk aksi
+              </p>
+              <p class="text-gray-300 text-sm">
+                <span class="font-medium">Screen Reader:</span><br>
+                Kompatibel dengan pembaca layar
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Copyright & Legal -->
+        <div class="border-t border-gray-700 mt-8 pt-6">
+          <div class="flex flex-col md:flex-row justify-between items-center">
+            <p class="text-gray-400 text-sm">
+              © 2025 Story App. Dibuat untuk pembelajaran dan pengembangan.
+            </p>
+            <div class="flex space-x-4 mt-4 md:mt-0">
+              <span class="text-gray-400 text-sm" role="contentinfo">
+                Versi 1.0.0
+              </span>
+              <span class="text-gray-400 text-sm" aria-label="Status aplikasi: Aktif">
+                🟢 Online
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" style="display: none;">
+      <div class="loading-content bg-white rounded-2xl p-8 shadow-2xl text-center max-w-sm mx-4">
+        <div class="spinner w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+        <p class="text-gray-700 font-medium">Memuat...</p>
+      </div>
+    </div>
+  </body>
+</html>

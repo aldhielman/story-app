@@ -1,0 +1,69 @@
+{
+  "name": "Story App - Progressive Web App",
+  "short_name": "Story App",
+  "description": "Aplikasi berbagi cerita dengan fitur lokasi dan notifikasi push",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "categories": ["social", "lifestyle", "productivity"],
+  "lang": "id",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/images/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Story App - Mobile View"
+    },
+    {
+      "src": "/images/screenshot-desktop.png", 
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Story App - Desktop View"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Buat Story Baru",
+      "short_name": "Buat Story",
+      "description": "Langsung ke halaman pembuatan story",
+      "url": "/#/story/add",
+      "icons": [
+        {
+          "src": "/favicon.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Lihat Stories",
+      "short_name": "Stories",
+      "description": "Lihat semua stories",
+      "url": "/#/story",
+      "icons": [
+        {
+          "src": "/favicon.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}
