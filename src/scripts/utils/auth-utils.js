@@ -20,7 +20,7 @@ export function requireAuth(page) {
   const token = localStorage.getItem(CONFIG.ACCESS_TOKEN_KEY);
   if (!token) {
     location.hash = '/login';
-    return null;
+    return;
   }
   return page;
 }

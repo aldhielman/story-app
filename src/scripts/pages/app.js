@@ -284,8 +284,20 @@ class App {
       // Hide/show footer based on current route
       this.#updateFooterVisibility(currentPath);
 
+      // Check if page exists and is not null (from auth guards)
+      if (!page) {
+        console.warn(`No page found for route: ${currentPath}`);
+        return;
+      }
+
       // Create page instance
       const activePage = page();
+
+      // Check if activePage is null (from auth guards like requireAuth)
+      if (!activePage) {
+        console.log('Page creation returned null, likely due to auth redirect');
+        return;
+      }
 
       const transition = transitionHelper({
         updateDOM: async () => {
@@ -319,8 +331,11 @@ class App {
     const footer = document.querySelector('#app-footer');
     
     if (footer) {
-      // Hide footer on login and register pages
-      if (currentPath === '/login' || currentPath === '/register') {
+      // Hide footer on login and register pages, or when user is not authenticated
+      const token = localStorage.getItem('ACCESS_TOKEN');
+      const isAuthenticated = !!token;
+      
+      if (currentPath === '/login' || currentPath === '/register' || !isAuthenticated) {
         footer.classList.add('hidden');
       } else {
         footer.classList.remove('hidden');
