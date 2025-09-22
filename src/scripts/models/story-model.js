@@ -1,5 +1,7 @@
 import { getStories, getStoryDetail, addStory, addStoryGuest } from '../data/api.js';
+import { isServiceWorkerAvailable } from '../utils/index.js';
 import Map from '../utils/map.js';
+import { isNotificationAvailable, isNotificationGranted, isCurrentPushSubscriptionAvailable } from '../utils/notification-helper.js';
 
 class StoryModel {
   constructor() {
@@ -94,10 +96,11 @@ class StoryModel {
     }
   }
 
-  #shouldSendNotification() {
-    const isEnabled = localStorage.getItem('pushNotificationEnabled') === 'true';
-    const hasPermission = 'Notification' in window && Notification.permission === 'granted';
-    return isEnabled && hasPermission;
+  async #shouldSendNotification() {
+    // Periksa apakah notifikasi tersedia, permission granted, DAN user masih subscribe
+    return isNotificationAvailable() && 
+           isNotificationGranted() && 
+           await isCurrentPushSubscriptionAvailable();
   }
 
   async #sendPushNotification(description) {
@@ -124,9 +127,12 @@ class StoryModel {
                 body: `${description.substring(0, 50)}${description.length > 50 ? '...' : ''}`,
                 icon: '/favicon.png',
                 badge: '/favicon.png',
+                tag: 'story-created',
+                requireInteraction: false,
                 data: {
-                  url: `/#/story/${latestUserStory.id}`,
-                  storyId: latestUserStory.id
+                  url: `#/story/${latestUserStory.id}`,
+                  storyId: latestUserStory.id,
+                  type: 'story_created'
                 }
               }
             }

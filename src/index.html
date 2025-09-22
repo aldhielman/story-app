@@ -3,22 +3,13 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    
-    <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#3b82f6" />
-    <meta name="description" content="Aplikasi berbagi cerita dengan fitur lokasi dan notifikasi push" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Story App" />
-    <meta name="msapplication-TileColor" content="#3b82f6" />
-    <meta name="msapplication-tap-highlight" content="no" />
-    
-    <!-- Manifest -->
-    <link rel="manifest" href="/manifest.json" />
-    
+        
     <!-- Icons -->
     <link rel="shortcut icon" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/favicon.png" />
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="app.webmanifest" />
     
     <title>Story App</title>
     
@@ -34,32 +25,9 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-
-    <script type="module" src="scripts/index.js"></script>
   </head>
   <body class="bg-gray-50 min-h-screen m-0 p-0 flex flex-col">
-    
-    <!-- PWA Install Banner (will be shown when installable) -->
-    <div id="pwa-install-banner" class="hidden fixed top-0 left-0 right-0 z-[100] bg-blue-600 text-white p-3 shadow-lg">
-      <div class="flex items-center justify-between max-w-7xl mx-auto">
-        <div class="flex items-center space-x-3">
-          <span class="text-xl">📱</span>
-          <div>
-            <p class="font-medium">Install Story App</p>
-            <p class="text-sm opacity-90">Akses lebih cepat dan fitur offline</p>
-          </div>
-        </div>
-        <div class="flex items-center space-x-2">
-          <button id="pwa-install-btn" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-100 transition-colors">
-            Install
-          </button>
-          <button id="pwa-dismiss-btn" class="text-white hover:bg-blue-700 p-2 rounded-lg transition-colors">
-            ✕
-          </button>
-        </div>
-      </div>
-    </div>
-
+ 
     <!-- Header - Hidden by default, shown only when authenticated -->
     <header id="app-header" class="app-header hidden fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
       <!-- Skip to Content Link -->
@@ -78,12 +46,6 @@
           <div id="user-status" class="user-status flex items-center space-x-4">
             <!-- Will be populated by JavaScript based on auth status -->
           </div>
-
-          <button id="drawer-button" class="drawer-button lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors" aria-label="Open menu" tabindex="3">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-            </svg>
-          </button>
         </div>
       </div>
     </header>
