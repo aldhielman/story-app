@@ -47,6 +47,27 @@ class App {
       if (userStatus) {
         userStatus.innerHTML = `
           <div class="user-info flex items-center space-x-2 sm:space-x-3">
+            <!-- Navigation Menu -->
+            <nav class="nav-menu flex items-center space-x-1 sm:space-x-2">
+              
+              <a href="#/bookmark" 
+                 class="nav-link flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                 title="Bookmark">
+                <span class="text-lg">🔖</span>
+                <span class="hidden sm:inline">Bookmark</span>
+              </a>
+              
+              <a href="#/offline-stories" 
+                 class="nav-link flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                 title="Story Offline">
+                <span class="text-lg">📱</span>
+                <span class="hidden sm:inline">Offline Stories</span>
+              </a>
+            </nav>
+            
+            <!-- Divider -->
+            <div class="hidden sm:block w-px h-6 bg-gray-300"></div>
+            
             <!-- Notification Toggle -->
             <div class="notification-toggle">
               <button id="notification-toggle-btn" 
@@ -74,8 +95,8 @@ class App {
         // Setup notification toggle
         this.#setupNotificationToggle();
         
-        // // Setup test notification buttons
-        // this.#setupTestNotifications();
+        // Setup connection status
+        this.#setupConnectionStatus();
         
         // Setup logout button
         const logoutBtn = document.getElementById('header-logout-btn');
@@ -85,6 +106,9 @@ class App {
             window.location.hash = '#/login';
           });
         }
+
+        // Setup active nav highlighting
+        this.#setupActiveNavHighlighting();
       }
     } else {
       // Hide header when not authenticated
@@ -94,11 +118,49 @@ class App {
     }
   }
 
+  #setupActiveNavHighlighting() {
+    const updateActiveNav = () => {
+      const currentPath = window.location.hash.slice(1) || '/';
+      const navLinks = document.querySelectorAll('.nav-link');
+      
+      navLinks.forEach(link => {
+        const href = link.getAttribute('href').slice(1);
+        if (currentPath.startsWith(href) && href !== '/') {
+          link.classList.add('bg-blue-100', 'text-blue-700');
+        } else {
+          link.classList.remove('bg-blue-100', 'text-blue-700');
+        }
+      });
+    };
+
+    // Update on hash change
+    window.addEventListener('hashchange', updateActiveNav);
+    // Update immediately
+    updateActiveNav();
+  }
+
+  #setupConnectionStatus() {
+    const updateConnectionStatus = () => {
+      const statusElement = document.getElementById('connection-status');
+      const iconElement = document.getElementById('connection-icon');
+      const textElement = document.getElementById('connection-text');
+      
+      if (!statusElement || !iconElement || !textElement) return;
+    };
+
+    // Listen for online/offline events
+    window.addEventListener('online', updateConnectionStatus);
+    window.addEventListener('offline', updateConnectionStatus);
+    
+    // Update immediately
+    updateConnectionStatus();
+  }
+
   async #setupNotificationToggle() {
     const toggleBtn = document.getElementById('notification-toggle-btn');
     
     if (!toggleBtn || !isNotificationAvailable()) return;
-    
+
     // Remove existing event listeners
     const newToggleBtn = toggleBtn.cloneNode(true);
     toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);

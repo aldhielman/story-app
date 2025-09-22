@@ -72,79 +72,6 @@ registerRoute(
   })
 );
 
-// Push event - handle push notifications from server AND dev tools
-self.addEventListener('push', (event) => {
-  console.log('Push event received:', event);
-  console.log('Push data available:', !!event.data);
-  
-  let notificationTitle = 'Story App';
-  let notificationOptions = {
-    body: 'Push notification test',
-    icon: '/favicon.png',
-    badge: '/favicon.png',
-    tag: 'story-app-notification',
-    requireInteraction: false,
-    data: {
-      url: '/#/',
-      storyId: null
-    }
-  };
-
-  // Handle case when no data is provided (DevTools test)
-  if (!event.data) {
-    console.log('No push data, showing default notification');
-    notificationTitle = 'Story App - Test Push';
-    notificationOptions.body = 'Push notification test dari Developer Tools (no data)';
-  } else {
-    try {
-      const pushDataText = event.data.text();
-      console.log('Push data text:', pushDataText);
-      
-      if (pushDataText.trim() === '') {
-        // Empty data from DevTools
-        notificationTitle = 'Story App - Test Push';
-        notificationOptions.body = 'Push notification test dari Developer Tools (empty data)';
-      } else {
-        // Try to parse as JSON
-        try {
-          const pushData = JSON.parse(pushDataText);
-          console.log('Parsed push data:', pushData);
-          
-          notificationTitle = pushData.title || 'Story App';
-          notificationOptions.body = pushData.body || pushData.message || 'New notification';
-          notificationOptions.icon = pushData.icon || '/favicon.png';
-          notificationOptions.badge = pushData.badge || '/favicon.png';
-          notificationOptions.data = {
-            url: pushData.url || pushData.data?.url || '/#/',
-            storyId: pushData.storyId || pushData.data?.storyId
-          };
-        } catch (jsonError) {
-          // Not JSON, treat as plain text
-          console.log('Push data is not JSON, treating as plain text');
-          notificationTitle = 'Story App - Test Push';
-          notificationOptions.body = pushDataText;
-        }
-      }
-    } catch (error) {
-      console.error('Error processing push data:', error);
-      notificationTitle = 'Story App - Error';
-      notificationOptions.body = 'Error processing notification data';
-    }
-  }
-
-  console.log('Showing notification with:', { notificationTitle, notificationOptions });
-
-  event.waitUntil(
-    self.registration.showNotification(notificationTitle, notificationOptions)
-      .then(() => {
-        console.log('Push notification shown successfully');
-      })
-      .catch((error) => {
-        console.error('Failed to show push notification:', error);
-      })
-  );
-});
-
 // Message event - handle messages from main thread (untuk story notifications)
 self.addEventListener('message', (event) => {
   console.log('Service Worker received message:', event.data);
@@ -154,7 +81,30 @@ self.addEventListener('message', (event) => {
     
     console.log('Showing notification from message:', { title, options });
     
-    self.registration.showNotification(title, options)
+    // Enhanced notification options with image support
+    const enhancedOptions = {
+      ...options,
+      vibrate: [200, 100, 200], // Vibration pattern
+      silent: false,
+      renotify: true,
+      timestamp: Date.now()
+    };
+    
+    // Prevent duplicate notifications by checking recent notifications
+    const notificationTag = enhancedOptions.tag || 'default';
+    const lastShown = self.lastNotificationTimes || {};
+    const now = Date.now();
+    
+    // Perbaiki waktu duplicate check menjadi 3 detik
+    if (lastShown[notificationTag] && (now - lastShown[notificationTag]) < 3000) {
+      console.log('Skipping duplicate notification with tag:', notificationTag);
+      return;
+    }
+    
+    // Store timestamp
+    self.lastNotificationTimes = { ...lastShown, [notificationTag]: now };
+    
+    self.registration.showNotification(title, enhancedOptions)
       .then(() => {
         console.log('Notification shown successfully from message');
       })
@@ -164,33 +114,43 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// Notification click event - handle navigation (HANYA SATU)
+// Notification click event - handle navigation dan actions
 self.addEventListener('notificationclick', (event) => {
   console.log('Notification clicked:', event);
   event.notification.close();
   
+  const action = event.action;
   const targetUrl = event.notification.data?.url || '/#/';
   const storyId = event.notification.data?.storyId;
   
-  console.log('Navigation target:', { targetUrl, storyId });
+  console.log('Notification action:', { action, targetUrl, storyId });
   
+  // Handle different actions
+  if (action === 'close') {
+    // Just close the notification
+    return;
+  }
+  
+  // Default action or 'view' action - navigate to story
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       // Try to focus existing window and navigate
       for (const client of clientList) {
         if (client.url.includes(self.location.origin)) {
-          // Send navigation message to client
+          console.log('Focusing existing client and navigating');
+          client.focus();
           client.postMessage({
             type: 'NAVIGATE_TO',
             url: targetUrl,
             storyId: storyId
           });
-          return client.focus();
+          return;
         }
       }
       
-      // Open new window if no existing window found
-      return clients.openWindow(targetUrl);
+      // No existing window found, open new one
+      console.log('Opening new window');
+      return clients.openWindow(self.location.origin + targetUrl);
     })
   );
 });

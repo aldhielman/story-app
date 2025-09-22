@@ -11,6 +11,40 @@ export function sleep(time = 1000) {
   return new Promise((resolve) => setTimeout(resolve, time));
 }
 
+export async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+  });
+}
+
+export async function base64ToFile(base64String, filename) {
+  try {
+    // Handle data URL format (data:image/jpeg;base64,...)
+    const arr = base64String.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    
+    // Create File object with proper MIME type
+    const file = new File([u8arr], filename, { 
+      type: mime,
+      lastModified: Date.now()
+    });
+    
+    return file;
+  } catch (error) {
+    console.error('Error converting base64 to file:', error);
+    throw new Error('Failed to convert base64 to file');
+  }
+}
+
 export function convertBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');

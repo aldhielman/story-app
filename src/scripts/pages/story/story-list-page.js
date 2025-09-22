@@ -1,5 +1,7 @@
 import StoryModel from '../../models/story-model.js';
 import StoryListPresenter from '../../presenters/story-list-presenter.js';
+import Database from '../../data/database.js';
+import syncManager from '../../utils/sync-manager.js';
 
 export default class StoryListView {
 
@@ -8,6 +10,195 @@ export default class StoryListView {
   constructor() {
     const storyModel = new StoryModel();
     this.#presenter = new StoryListPresenter({storyModel, view: this});
+    this.#setupSyncListeners();
+  }
+
+  #setupSyncListeners() {
+    // Listen for sync events to update offline story indicators
+    window.addEventListener('storySynced', (event) => {
+      const { tempId, serverStory } = event.detail;
+      this.#updateOfflineStoryToSynced(tempId, serverStory);
+    });
+
+    window.addEventListener('syncComplete', () => {
+      // Refresh the story list to show updated sync status
+      this.#presenter.loadStories(true);
+    });
+
+    // Listen for connection changes
+    window.addEventListener('online', () => {
+      this.#showConnectionStatus('Terhubung ke internet', 'success');
+    });
+    
+    window.addEventListener('offline', () => {
+      this.#showConnectionStatus('Mode offline', 'warning');
+    });
+  }
+
+  async afterRender() {
+    this.#setupEvents();
+    await this.#presenter.loadStories();
+    await this.#loadAndDisplayOfflineStories();
+  }
+
+  async #loadAndDisplayOfflineStories() {
+    try {
+      const offlineStories = await Database.getOfflineStories();
+      if (offlineStories.length > 0) {
+        // Convert offline stories to display format
+        const formattedOfflineStories = offlineStories.map(story => ({
+          id: story.tempId,
+          description: story.description,
+          photoUrl: story.photo, // base64 photo
+          location: story.location || 'Lokasi tidak diketahui',
+          name: 'Anda',
+          createdAt: story.createdAt,
+          isOffline: true,
+          synced: story.synced
+        }));
+
+        // Add offline stories to the beginning of the list
+        this.showOfflineStories(formattedOfflineStories);
+      }
+    } catch (error) {
+      console.error('Error loading offline stories:', error);
+    }
+  }
+
+  showOfflineStories(offlineStories) {
+    const storiesGrid = document.getElementById('stories-grid');
+    if (!storiesGrid) return;
+
+    offlineStories.forEach(story => {
+      const storyElement = this.#createStoryElement(story);
+      // Insert at the beginning
+      storiesGrid.insertBefore(storyElement, storiesGrid.firstChild);
+    });
+  }
+
+  #createStoryElement(story) {
+    const storyElement = document.createElement('div');
+    storyElement.className = 'story-card bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer transform hover:-translate-y-1';
+    storyElement.dataset.storyId = story.id;
+    
+    // Add offline indicator classes
+    if (story.isOffline) {
+      storyElement.classList.add('offline-story');
+      if (!story.synced) {
+        storyElement.classList.add('unsynced');
+      }
+    }
+    
+    const offlineIndicator = story.isOffline ? `
+      <div class="absolute top-2 left-2 z-10">
+        ${story.synced ? 
+          '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200"><span class="w-2 h-2 bg-green-400 rounded-full mr-1"></span>Tersinkron</span>' :
+          '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200"><span class="w-2 h-2 bg-amber-400 rounded-full mr-1 animate-pulse"></span>Menunggu sync</span>'
+        }
+      </div>
+    ` : '';
+    
+    storyElement.innerHTML = `
+      <div class="aspect-w-16 aspect-h-12 bg-gray-100 relative">
+        ${offlineIndicator}
+        <img src="${story.photoUrl}" alt="${story.description}" class="w-full h-48 object-cover" loading="lazy">
+        ${story.isOffline && !story.synced ? '<div class="absolute inset-0 bg-amber-50/20 backdrop-blur-[0.5px]"></div>' : ''}
+      </div>
+      <div class="p-4">
+        <h3 class="font-semibold text-gray-900 mb-2 line-clamp-2">${story.description}</h3>
+        <div class="flex items-center text-sm text-gray-500 space-x-2">
+          <span>📍</span>
+          <span>${story.location || 'Lokasi tidak diketahui'}</span>
+        </div>
+        <div class="flex items-center justify-between mt-2">
+          <div class="flex items-center text-sm text-gray-500">
+            <span>👤</span>
+            <span class="ml-1">${story.name}</span>
+          </div>
+          ${story.isOffline ? `
+            <div class="text-xs text-gray-400">
+              ${story.synced ? '✅ Disimpan' : '📱 Offline'}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+    
+    // Handle click for offline stories
+    if (story.isOffline && !story.synced) {
+      storyElement.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.#showOfflineStoryMessage();
+      });
+    } else if (!story.isOffline) {
+      storyElement.addEventListener('click', () => {
+        window.location.hash = `#/story/${story.id}`;
+      });
+    }
+    
+    return storyElement;
+  }
+
+  #updateOfflineStoryToSynced(tempId, serverStory) {
+    const storyElement = document.querySelector(`[data-story-id="${tempId}"]`);
+    if (storyElement) {
+      // Update the indicator to show synced status
+      const indicator = storyElement.querySelector('.absolute.top-2.left-2');
+      if (indicator) {
+        indicator.innerHTML = '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200"><span class="w-2 h-2 bg-green-400 rounded-full mr-1"></span>Tersinkron</span>';
+      }
+      
+      // Remove overlay
+      const overlay = storyElement.querySelector('.absolute.inset-0.bg-amber-50\\/20');
+      if (overlay) {
+        overlay.remove();
+      }
+      
+      // Update click handler to navigate to server story
+      storyElement.replaceWith(storyElement.cloneNode(true));
+      const newElement = document.querySelector(`[data-story-id="${tempId}"]`);
+      newElement.addEventListener('click', () => {
+        window.location.hash = `#/story/${serverStory.id}`;
+      });
+    }
+  }
+
+  #showOfflineStoryMessage() {
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-20 right-4 z-50 px-4 py-3 rounded-lg shadow-lg bg-amber-500 text-white text-sm font-medium transition-all duration-300 transform translate-x-full';
+    toast.textContent = 'Story offline akan tersedia setelah tersinkronisasi';
+    document.body.appendChild(toast);
+    
+    setTimeout(() => toast.classList.remove('translate-x-full'), 100);
+    setTimeout(() => {
+      toast.classList.add('translate-x-full');
+      setTimeout(() => document.body.removeChild(toast), 300);
+    }, 3000);
+  }
+
+  #showConnectionStatus(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-20 left-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium transition-all duration-300 transform -translate-x-full`;
+    
+    switch (type) {
+      case 'success':
+        toast.classList.add('bg-green-500');
+        break;
+      case 'warning':
+        toast.classList.add('bg-amber-500');
+        break;
+      default:
+        toast.classList.add('bg-blue-500');
+    }
+    
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => toast.classList.remove('-translate-x-full'), 100);
+    setTimeout(() => {
+      toast.classList.add('-translate-x-full');
+      setTimeout(() => document.body.removeChild(toast), 300);
+    }, 3000);
   }
 
   render() {
@@ -218,31 +409,6 @@ export default class StoryListView {
       const storyElement = this.#createStoryElement(story);
       storiesGrid.appendChild(storyElement);
     });
-  }
-
-  #createStoryElement(story) {
-    const storyElement = document.createElement('div');
-    storyElement.className = 'story-card bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer transform hover:-translate-y-1';
-    storyElement.dataset.storyId = story.id;
-    
-    storyElement.innerHTML = `
-      <div class="aspect-w-16 aspect-h-12 bg-gray-100">
-        <img src="${story.photoUrl}" alt="${story.description}" class="w-full h-48 object-cover" loading="lazy">
-      </div>
-      <div class="p-4">
-        <h3 class="font-semibold text-gray-900 mb-2 line-clamp-2">${story.description}</h3>
-        <div class="flex items-center text-sm text-gray-500 space-x-2">
-          <span>📍</span>
-          <span>${story.location || 'Lokasi tidak diketahui'}</span>
-        </div>
-        <div class="flex items-center text-sm text-gray-500 mt-2">
-          <span>👤</span>
-          <span class="ml-1">${story.name}</span>
-        </div>
-      </div>
-    `;
-    
-    return storyElement;
   }
 
   showError(message) {

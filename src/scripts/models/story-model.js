@@ -1,12 +1,15 @@
 import { getStories, getStoryDetail, addStory, addStoryGuest } from '../data/api.js';
-import { isServiceWorkerAvailable } from '../utils/index.js';
+import { fileToBase64, isServiceWorkerAvailable } from '../utils/index.js';
 import Map from '../utils/map.js';
 import { isNotificationAvailable, isNotificationGranted, isCurrentPushSubscriptionAvailable } from '../utils/notification-helper.js';
+import Database from '../data/database.js';
+import syncManager from '../utils/sync-manager.js';
 
-class StoryModel {
+export default class StoryModel {
   constructor() {
     this.stories = [];
     this.currentStory = null;
+    this.bookmarkedStories = [];
     this.pagination = {
       page: 1,
       size: 10,
@@ -21,8 +24,6 @@ class StoryModel {
         this.pagination.page = 1;
       }
 
-      // If locationFilter is provided, set location to 1 to get stories with coordinates
-      // Otherwise use 0 to get all stories
       const location = locationFilter ? 1 : 0;
       const response = await getStories(page, size, location);
       
@@ -76,21 +77,113 @@ class StoryModel {
     }
   }
 
+  // Bookmark methods
+  async bookmarkStory(story) {
+    try {
+      await Database.bookmarkStory(story);
+      return { success: true, message: 'Story berhasil di-bookmark' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  async removeBookmark(storyId) {
+    try {
+      await Database.removeBookmark(storyId);
+      return { success: true, message: 'Bookmark berhasil dihapus' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  async isStoryBookmarked(storyId) {
+    return await Database.isStoryBookmarked(storyId);
+  }
+
+  async loadBookmarkedStories() {
+    try {
+      this.bookmarkedStories = await Database.getAllBookmarkedStories();
+      return { success: true, stories: this.bookmarkedStories };
+    } catch (error) {
+      return { success: false, message: error.message };
+    }
+  }
+
   async createStory({description, photo, lat = null, lon = null}, useAuth = true) {
     try {
-      let response;
-      if (useAuth) {
-        response = await addStory(description, photo, lat, lon);
-      } else {
-        response = await addStoryGuest(description, photo, lat, lon);
+      if (syncManager.isOnline) { 
+        try {
+          let response;
+          
+          if (useAuth) {
+            response = await addStory(description, photo, lat, lon);
+          } else {
+            response = await addStoryGuest(description, photo, lat, lon);
+          }
+          
+          if (useAuth && await this.#shouldSendNotification()) {
+            await this.#sendPushNotification(description);
+          }
+          
+          return { success: true, message: response.message, online: true };
+          
+        } catch (apiError) {
+          console.error('API call failed:', apiError);
+          
+          // If it's a network error, fall back to offline mode
+          if (apiError.name === 'AbortError' || 
+              apiError.name === 'TypeError' || 
+              apiError.message.includes('fetch') ||
+              apiError.message.includes('Failed to fetch')) {
+            
+            console.log('Network error detected, falling back to offline mode');
+            // Update sync manager status
+            syncManager.isOnline = false;
+            
+            // Fall through to offline logic
+          } else {
+            // Other API errors (auth, validation, etc.)
+            throw apiError;
+          }
+        }
       }
       
-      // Send push notification if enabled and authenticated
-      if (useAuth && this.#shouldSendNotification()) {
-        await this.#sendPushNotification(description);
+      // Offline mode or API call failed
+      if (!useAuth) {
+        throw new Error('Tidak dapat membuat story sebagai guest saat offline');
       }
+
+      console.log('Creating story in offline mode...');
       
-      return { success: true, message: response.message };
+      // Convert photo to base64 for storage
+      const photoBase64 = await fileToBase64(photo);
+      
+      const tempId = await Database.saveOfflineStory({
+        description,
+        photo: photoBase64,
+        lat,
+        lon
+      });
+
+      console.log('Story saved offline with tempId:', tempId);
+
+      return { 
+        success: true, 
+        message: 'Story disimpan offline. Akan disinkronkan saat online.', 
+        tempId,
+        online: false 
+      };
+      
+    } catch (error) {
+      console.error('Story creation failed:', error);
+      return { success: false, message: error.message };
+    }
+  }
+
+  async getOfflineStories() {
+    try {
+      const offlineStories = await Database.getOfflineStories();
+      return { success: true, stories: offlineStories };
     } catch (error) {
       return { success: false, message: error.message };
     }
@@ -103,11 +196,15 @@ class StoryModel {
            await isCurrentPushSubscriptionAvailable();
   }
 
-  async #sendPushNotification(description) {
+  async #sendPushNotification(description, photoFile = null) {
     try {
-      // Get current user info
+      
+      // Get current user info - PERBAIKAN: definisikan currentUser
       const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
-      if (!currentUser) return;
+      if (!currentUser) {
+        console.log('No current user found, skipping notification');
+        return;
+      }
   
       // Get latest stories to find the one created by current user
       const storiesResponse = await getStories(1, 10, 0);
@@ -115,26 +212,49 @@ class StoryModel {
         story.name === currentUser.name || story.userId === currentUser.userId
       );
   
-      if (latestUserStory && 'serviceWorker' in navigator) {
+      if (latestUserStory && isServiceWorkerAvailable()) {
         const registration = await navigator.serviceWorker.ready;
         
         if (registration.active) {
+          // Prepare notification options with story image
+          const notificationOptions = {
+            body: `${description.substring(0, 100)}${description.length > 100 ? '...' : ''}`, // Perbaiki panjang body
+            icon: '/favicon.png',
+            badge: '/favicon.png',
+            tag: 'story-created', // Use same tag to replace previous notifications
+            requireInteraction: false,
+            renotify: true, // Allow replacing previous notification
+            data: {
+              url: `#/story/${latestUserStory.id}`,
+              storyId: latestUserStory.id,
+              type: 'story_created'
+            }
+          };
+
+          // Add story image if available
+          if (latestUserStory.photoUrl) {
+            notificationOptions.image = latestUserStory.photoUrl;
+          }
+
+          // Add action buttons
+          notificationOptions.actions = [
+            {
+              action: 'view',
+              title: 'Lihat Story',
+              icon: '/favicon.png'
+            },
+            {
+              action: 'close',
+              title: 'Tutup',
+              icon: '/favicon.png'
+            }
+          ];
+
           registration.active.postMessage({
             type: 'SHOW_NOTIFICATION',
             data: {
-              title: 'Story berhasil dibuat',
-              options: {
-                body: `${description.substring(0, 50)}${description.length > 50 ? '...' : ''}`,
-                icon: '/favicon.png',
-                badge: '/favicon.png',
-                tag: 'story-created',
-                requireInteraction: false,
-                data: {
-                  url: `#/story/${latestUserStory.id}`,
-                  storyId: latestUserStory.id,
-                  type: 'story_created'
-                }
-              }
+              title: '📸 Story Berhasil Dibuat!',
+              options: notificationOptions
             }
           });
         }
@@ -169,5 +289,3 @@ class StoryModel {
     return await this.loadStories(nextPage, this.pagination.size, locationFilter, false);
   }
 }
-
-export default StoryModel;

@@ -12,8 +12,7 @@ export function isNotificationGranted() {
 
 export async function getPushSubscription() {
     const registration = await navigator.serviceWorker.getRegistration();
-    console.log("tet",registration)
-    return await registration.pushManager.getSubscription();
+    return await registration.pushManager?.getSubscription();
 }
 
 export async function isCurrentPushSubscriptionAvailable() {

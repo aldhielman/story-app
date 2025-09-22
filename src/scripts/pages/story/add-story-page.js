@@ -15,6 +15,33 @@ export default class AddStoryPage {
   constructor() {
     const storyModel = new StoryModel();
     this.#presenter = new AddStoryPresenter({storyModel, view: this});
+    // Move sync listeners to view layer
+    this.#setupSyncListeners();
+  }
+
+  #setupSyncListeners() {
+    // Listen for connection changes
+    window.addEventListener('online', () => {
+      this.#updateConnectionStatus(true);
+    });
+    
+    window.addEventListener('offline', () => {
+      this.#updateConnectionStatus(false);
+    });
+    
+    // Listen for sync events - now in view layer
+    window.addEventListener('storySynced', (event) => {
+      const { tempId, serverStory } = event.detail;
+      this.showSyncMessage(`Story "${serverStory?.description?.substring(0, 30)}..." berhasil disinkronkan!`, 'success');
+    });
+
+    window.addEventListener('syncComplete', (event) => {
+      const { syncedCount } = event.detail;
+      if (syncedCount > 0) {
+        this.showSyncMessage(`${syncedCount} story berhasil disinkronkan saat online!`, 'success');
+      }
+      this.#hideSyncStatus();
+    });
   }
 
   async render() {
@@ -196,8 +223,110 @@ export default class AddStoryPage {
   `;
   }
 
+  #updateConnectionStatus(isOnline) {
+    const statusBanner = document.getElementById('connection-status');
+    const statusIcon = document.getElementById('connection-icon');
+    const statusText = document.getElementById('connection-text');
+    const offlineNotice = document.getElementById('offline-notice');
+    
+    if (!statusBanner || !statusIcon || !statusText) return;
+    
+    if (isOnline) {
+      statusBanner.className = 'mb-4 p-3 rounded-lg border bg-green-50 border-green-200';
+      statusIcon.textContent = '🟢';
+      statusText.textContent = 'Terhubung ke internet';
+      statusText.className = 'text-sm font-medium text-green-800';
+      
+      if (offlineNotice) {
+        offlineNotice.classList.add('hidden');
+      }
+      
+      // Hide after 3 seconds
+      setTimeout(() => {
+        statusBanner.classList.add('hidden');
+      }, 3000);
+      
+      // Show sync status if syncing
+      this.#showSyncStatus();
+    } else {
+      statusBanner.className = 'mb-4 p-3 rounded-lg border bg-amber-50 border-amber-200';
+      statusIcon.textContent = '🔴';
+      statusText.textContent = 'offline';
+      statusText.className = 'text-sm font-medium text-amber-800';
+      statusBanner.classList.remove('hidden');
+      
+      if (offlineNotice) {
+        offlineNotice.classList.remove('hidden');
+      }
+    }
+  }
+
+  #showSyncStatus() {
+    const syncStatus = document.getElementById('sync-status');
+    if (syncStatus) {
+      syncStatus.classList.remove('hidden');
+    }
+  }
+
+  #hideSyncStatus() {
+    const syncStatus = document.getElementById('sync-status');
+    if (syncStatus) {
+      syncStatus.classList.add('hidden');
+    }
+  }
+
+  showSyncMessage(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-20 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-medium transition-all duration-300 transform translate-x-full`;
+    
+    switch (type) {
+      case 'success':
+        toast.classList.add('bg-green-500');
+        break;
+      case 'error':
+        toast.classList.add('bg-red-500');
+        break;
+      default:
+        toast.classList.add('bg-blue-500');
+    }
+    
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => {
+      toast.classList.remove('translate-x-full');
+    }, 100);
+    
+    // Remove after 4 seconds
+    setTimeout(() => {
+      toast.classList.add('translate-x-full');
+      setTimeout(() => {
+        if (document.body.contains(toast)) {
+          document.body.removeChild(toast);
+        }
+      }, 300);
+    }, 4000);
+  }
+
+  showOfflineMessage(message) {
+    this.showSyncMessage(message, 'info');
+    setTimeout(() => {
+      window.location.hash = '#/offline-stories';
+    }, 1500);
+  }
+
+  showOfflineIndicator() {
+    const offlineNotice = document.getElementById('offline-notice');
+    if (offlineNotice) {
+      offlineNotice.classList.remove('hidden');
+    }
+  }
+
   afterRender() {
     this.#setupForm();
+    // Initialize connection status
+    this.#updateConnectionStatus(navigator.onLine);
   }
 
   #setupForm() {
@@ -475,6 +604,11 @@ export default class AddStoryPage {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Bagikan Cerita';
     }
+    
+    // Redirect to story list after successful creation
+    setTimeout(() => {
+      window.location.hash = '#/story';
+    }, 1500);
   }
 
   showErrorMessage(message) {

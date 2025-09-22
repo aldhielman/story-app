@@ -7,6 +7,7 @@ export default class StoryDetailPage {
 
   #map
   #presenter
+  #currentStory
 
   constructor() {
     const storyModel = new StoryModel();
@@ -36,7 +37,13 @@ export default class StoryDetailPage {
           
           <article class="story-article bg-white rounded-2xl shadow-xl overflow-hidden">
             <header class="story-header p-6 border-b border-gray-200">
-              <h1 id="story-title" class="story-title text-2xl sm:text-3xl font-bold text-gray-900 mb-4"></h1>
+              <div class="flex items-start justify-between mb-4">
+                <h1 id="story-title" class="story-title text-2xl sm:text-3xl font-bold text-gray-900 flex-1"></h1>
+                <button id="bookmark-btn" class="bookmark-btn ml-4 flex items-center space-x-2 px-4 py-2 rounded-full border-2 transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                  <span class="bookmark-icon text-xl">🤍</span>
+                  <span class="bookmark-text font-medium">Bookmark</span>
+                </button>
+              </div>
               <div class="story-meta">
                 <div class="author-info flex items-center space-x-4">
                   <div class="author-avatar w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
@@ -70,15 +77,25 @@ export default class StoryDetailPage {
             </div>
             
             <footer class="story-footer p-6 border-t border-gray-200 bg-gray-50">
-              <div class="story-actions text-center">
+              <div class="story-actions flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
                 <a href="#/story" class="btn btn-secondary inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
                   <span>📚</span>
                   <span>Lihat Cerita Lain</span>
+                </a>
+                <a href="#/bookmark" class="btn btn-outline inline-flex items-center space-x-2 border-2 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white px-8 py-3 rounded-full font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300">
+                  <span>📖</span>
+                  <span>Lihat Bookmark</span>
                 </a>
               </div>
             </footer>
           </article>
         </main>
+
+        <!-- Success/Info Messages -->
+        <div id="message-container" class="fixed top-20 right-4 z-50 space-y-2">
+          <!-- Messages will be inserted here -->
+        </div>
+      </div>
     `;
   }
 
@@ -86,6 +103,19 @@ export default class StoryDetailPage {
     // Get story ID from URL hash
     const {id} = parseActivePathname()
     await this.#presenter.getStoryDetail(id);
+    this.#bindEvents();
+  }
+
+  #bindEvents() {
+    // Bookmark button event
+    const bookmarkBtn = document.getElementById('bookmark-btn');
+    if (bookmarkBtn) {
+      bookmarkBtn.addEventListener('click', async () => {
+        if (this.#currentStory) {
+          await this.#presenter.toggleBookmark(this.#currentStory);
+        }
+      });
+    }
   }
 
   async initialMap(lat,lon,storyTitle) {
@@ -107,7 +137,8 @@ export default class StoryDetailPage {
     this.#map.addMarker([lat,lon], markerOptions, popupOptions);
   }
 
-  renderStory(story) {
+  async renderStory(story) {
+    this.#currentStory = story;
     
     document.title = `${story.name} - Story App`;
     
@@ -158,6 +189,49 @@ export default class StoryDetailPage {
       // Sembunyikan section jika tidak ada koordinat
       locationSection.style.display = 'none';
     }
+
+    // Update bookmark button status
+    await this.#presenter.updateBookmarkButtonStatus(story.id);
+  }
+
+  updateBookmarkButton(isBookmarked) {
+    const bookmarkBtn = document.getElementById('bookmark-btn');
+    const icon = bookmarkBtn.querySelector('.bookmark-icon');
+    const text = bookmarkBtn.querySelector('.bookmark-text');
+    
+    if (isBookmarked) {
+      icon.textContent = '❤️';
+      text.textContent = 'Tersimpan';
+      bookmarkBtn.classList.remove('border-gray-300', 'text-gray-600', 'hover:border-red-500', 'hover:text-red-500');
+      bookmarkBtn.classList.add('border-red-500', 'text-red-500', 'bg-red-50', 'hover:bg-red-100');
+    } else {
+      icon.textContent = '🤍';
+      text.textContent = 'Bookmark';
+      bookmarkBtn.classList.remove('border-red-500', 'text-red-500', 'bg-red-50', 'hover:bg-red-100');
+      bookmarkBtn.classList.add('border-gray-300', 'text-gray-600', 'hover:border-red-500', 'hover:text-red-500');
+    }
+  }
+
+  showMessage(message, type = 'info') {
+    const container = document.getElementById('message-container');
+    const messageEl = document.createElement('div');
+    
+    const bgColor = type === 'success' ? 'bg-green-500' : 
+                   type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+    
+    messageEl.className = `${bgColor} text-white px-4 py-3 rounded-lg shadow-lg text-sm font-medium transition-all duration-300 transform translate-x-full`;
+    messageEl.textContent = message;
+    
+    container.appendChild(messageEl);
+    
+    // Animate in
+    setTimeout(() => messageEl.classList.remove('translate-x-full'), 100);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      messageEl.classList.add('translate-x-full');
+      setTimeout(() => container.removeChild(messageEl), 300);
+    }, 3000);
   }
 
   showLoading() {
