@@ -17,10 +17,13 @@ export function getAccessToken() {
 }
 
 export function requireAuth(page) {
-  const token = localStorage.getItem(CONFIG.ACCESS_TOKEN_KEY);
-  if (!token) {
-    location.hash = '/login';
-    return;
+  const isLogin = !!getAccessToken();
+  if (!isLogin) {
+    // Use setTimeout to ensure redirect happens after current render cycle
+    setTimeout(() => {
+      location.hash = '/login';
+    }, 0);
+    return null;
   }
   return page;
 }

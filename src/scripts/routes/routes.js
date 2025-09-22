@@ -8,7 +8,7 @@ import OfflineStoriesPage from '../pages/offline/offline-stories-page.js';
 import { redirectIfAuthenticated, requireAuth } from '../utils/auth-utils.js';
 
 const routes = {
-  '/': () =>redirectIfAuthenticated(new LoginPage()),
+  '/': () =>requireAuth(new StoryListPage()),
   '/story': () =>requireAuth(new StoryListPage()),
   '/story/:id': () =>requireAuth(new StoryDetailPage()),
   '/add-story': () =>requireAuth(new AddStoryPage()),
